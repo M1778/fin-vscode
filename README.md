@@ -199,6 +199,24 @@ There is no long-lived language-server process, so "restart the language server"
 means "rebuild the index and re-check", which is what that command does. A crashed
 compiler run cannot wedge the editor because every check is a short child process.
 
+### If you want one server for every editor
+
+[`fin-lsp`](https://github.com/M1778/fin-lsp) is the same support as a standalone
+Language Server -- diagnostics, hover, completion, outline, formatting and
+`fin.explainDiagnostic` -- with no VS Code dependency, so Neovim, Helix, Emacs and
+Zed get it too.
+
+The two are independent implementations of the same contract, not one wrapping the
+other: this extension spawns `finc` and `finfmt` directly per request, and the
+server keeps a long-lived process and an incremental document model. Use this
+extension if you are in VS Code and want zero setup; use `fin-lsp` if you want one
+tool for several editors, or if your client speaks LSP and you would rather not
+maintain a per-editor plugin.
+
+They agree because both read the same `docs/stdlib-index.json` from the compiler
+repository for hovers and completions, and both take diagnostics from the same
+`finc --diagnostics=json` stream.
+
 Also contributed: an editor context-menu entry for **Explain diagnostic code**, and
 snippets for `main`, `fun`, `struct`, `import`, `import path`, `blame`,
 `pub fun`, `fun?` and `foreach`.
