@@ -6,8 +6,9 @@ compiler's own grammar, the compiler's diagnostics as squiggles, `finfmt`
 formatting, and hover, completion and outline built from the shipped standard
 library.
 
-- Verified against **finc 1.0.1 (contract 3)**, and exercised against the published
-  **1.0.0** release (which has no `--explain`; see [docs/FIN-ISSUES.md](docs/FIN-ISSUES.md)).
+- Verified against **finc 1.0.1 (contract 3)**, and exercised in CI against the
+  published **finc 1.0.0** release (which reports contract 3 but has no
+  `--explain`; see [docs/FIN-ISSUES.md](docs/FIN-ISSUES.md)).
 - Extension version **1.0.0**.
 - License **MIT**.
 
@@ -15,8 +16,17 @@ library.
 
 ## Installing
 
-The extension is **not on the VS Code Marketplace**: publishing needs an owner
-token, and that was not available. Build or use the packaged `.vsix` instead.
+The extension is **not published to the VS Code Marketplace**: that needs an owner
+publisher token, which this build did not have. Install the packaged `.vsix`
+instead — it is attached to the
+[v1.0.0 release](https://github.com/M1778/fin-vscode/releases/tag/v1.0.0).
+
+```sh
+curl -LO https://github.com/M1778/fin-vscode/releases/download/v1.0.0/fin-vscode-1.0.0.vsix
+code --install-extension fin-vscode-1.0.0.vsix
+```
+
+Or build it yourself:
 
 ```sh
 git clone https://github.com/M1778/fin-vscode.git
@@ -24,16 +34,11 @@ cd fin-vscode
 npm ci
 npm run compile
 npx @vscode/vsce package          # writes fin-vscode-1.0.0.vsix
-```
-
-Then install the file you built:
-
-```sh
 code --install-extension fin-vscode-1.0.0.vsix
 ```
 
-or, in VS Code, **Extensions: Install from VSIX…** from the Command Palette,
-choosing that `.vsix`. Reload the window afterwards.
+Either way, **Extensions: Install from VSIX…** in the Command Palette installs the
+same file. Reload the window afterwards.
 
 ### You also need the compiler
 
@@ -312,12 +317,22 @@ npx @vscode/vsce package      # the .vsix
   apart, a path with spaces, cancellation, timeout, UTF-8 chunk boundaries.
 
 Set `FIN_COMPILER`, `FIN_FORMATTER` and `FIN_STDLIB` to run integration tests
-against a real Fin install. `FIN_TMLANGUAGE` points at the canonical grammar to
-re-check that the local copy still contains every canonical pattern.
+against a real Fin install. `FIN_EXPLAIN=no` marks a compiler without the additive
+`--explain` flag, so that one test reports pending instead of failing.
+`FIN_TMLANGUAGE` points at the canonical grammar to re-check that the local copy
+still contains every canonical pattern.
 
-CI runs `npm ci && npm run compile && npm test && npx @vscode/vsce package` on
-Linux, macOS and Windows, plus the extension-host suite with a real compiler where
-one is available.
+CI runs, on Linux, macOS and Windows:
+
+1. `npm ci && npm run compile && npm test && npx @vscode/vsce package`
+2. the extension-host suite against a pinned VS Code **1.95.3** (the oldest
+   version the extension declares support for), with the published `finc` release
+   downloaded and probed. A toolchain test that cannot run against that binary is
+   reported as pending, never as a pass.
+
+The last run before release was green on all six jobs; Linux ran the compiler,
+formatter and 49-module library, macOS ran the library, Windows ran activation,
+symbols, hover and the missing-compiler paths.
 
 ### Repository layout
 
