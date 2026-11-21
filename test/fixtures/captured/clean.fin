@@ -1,0 +1,4 @@
+fun main() <noret> {
+    let ok <int> = 1;
+    printf("%d\n", ok);
+}

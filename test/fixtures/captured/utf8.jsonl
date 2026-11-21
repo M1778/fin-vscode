@@ -1,0 +1,4 @@
+{"kind":"diagnostic","severity":"error","code":"E0201","message":"Type mismatch: expected 'int', got 'string'","file":"utf8.fin","line":2,"column":44,"endLine":2,"endColumn":48,"help":null,"attribution":null}
+{"kind":"diagnostic","severity":"warning","code":null,"message":"unused variable 's' is never read; remove it or prefix its name with '_'","file":"utf8.fin","line":2,"column":5,"endLine":2,"endColumn":29,"help":null,"attribution":null}
+{"kind":"diagnostic","severity":"warning","code":null,"message":"unused variable 'x' is never read; remove it or prefix its name with '_'","file":"utf8.fin","line":2,"column":30,"endLine":2,"endColumn":49,"help":null,"attribution":null}
+{"kind":"summary","errors":1,"warnings":2,"exitCode":1,"status":"failed"}

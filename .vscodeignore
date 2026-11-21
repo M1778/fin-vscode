@@ -1,0 +1,15 @@
+# Everything that is not needed to *run* the extension. `out/` is the compiled
+# extension; `src/` and `test/` are development material and would only make the
+# download larger.
+src/**
+test/**
+tools/**
+.github/**
+tsconfig.json
+.gitignore
+.vscode-test/**
+*.vsix
+*.map
+**/*.map
+node_modules/**
+package-lock.json

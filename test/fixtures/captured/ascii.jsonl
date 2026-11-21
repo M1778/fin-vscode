@@ -1,0 +1,4 @@
+{"kind":"diagnostic","severity":"error","code":"E0201","message":"Type mismatch: expected 'int', got 'string'","file":"ascii.fin","line":2,"column":19,"endLine":2,"endColumn":23,"help":null,"attribution":null}
+{"kind":"diagnostic","severity":"error","code":"E0301","message":"Undefined variable 'y'","file":"ascii.fin","line":3,"column":20,"endLine":3,"endColumn":21,"help":null,"attribution":null}
+{"kind":"diagnostic","severity":"warning","code":null,"message":"unused variable 'x' is never read; remove it or prefix its name with '_'","file":"ascii.fin","line":2,"column":5,"endLine":2,"endColumn":24,"help":null,"attribution":null}
+{"kind":"summary","errors":2,"warnings":1,"exitCode":1,"status":"failed"}

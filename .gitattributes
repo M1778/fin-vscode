@@ -1,0 +1,4 @@
+# Compiler fixtures are byte-exact test inputs: a line-ending rewrite changes the
+# file the compiler reads, so CRLF must survive a checkout on any platform.
+test/fixtures/captured/crlf.fin text eol=crlf
+test/fixtures/** -text

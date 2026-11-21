@@ -1,0 +1,295 @@
+// =============================================================================
+// Fin Programming Language Compiler
+//
+// Made with ❤️ for someone special.
+//
+// This project is genuinely built on love and dedication, a way to express your love can be done through Fin.
+// Fin is a semi-object-orientated programming language that specialized in control, giving so much control to the user while asking for the bare minimum.
+// Fin is the name of the Angel from BlackNightmare-Stories not yet published.
+// “Love is the reason this project exists”
+// -----------------------------------------------------------------------------
+// Author: M1778
+// Repository: https://github.com/M1778/Fin
+// Profile: https://github.com/M1778M/
+// -----------------------------------------------------------------------------
+// Copyright (C) 2027 M1778
+//
+// This file is part of the Fin Programming Language Compiler.
+//
+// Fin is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Fin is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Fin.  If not, see <https://www.gnu.org/licenses/>.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
+// ArgParse: command-line flag and argument parsing for compiler drivers and CLI tools.
+//
+// Supports boolean flags (`-c`, `-v`, `--emit-llvm`), value options (`-o <file>`,
+// `-I <dir>`, `--target <arch>`), and positional arguments (`main.fin`).
+//
+// `parse(args, count)` treats `count` as the caller's claim about `args` and checks it
+// before the first read: a negative count, a count past `args.length`, and a null element
+// each answer `error_msg` + `false` like every other refusal here. None of the three is a
+// parse failure a caller can recover from by re-reading the arguments -- they mean the
+// extent or the table handed in was wrong -- so they are refused rather than read past.
+
+namespace std {
+
+#[llvm_name="strcmp"]
+@define arg_strcmp(a: string, b: string) <int>;
+
+#[llvm_name="strlen"]
+@define arg_strlen(s: string) <ulong>;
+
+#[llvm_name="calloc"]
+@define arg_calloc(count: ulong, size: ulong) <string>;
+
+#[llvm_name="free"]
+@define arg_free(ptr: string) <noret>;
+
+#[llvm_name="strncmp"]
+@define arg_strncmp(a: string, b: string, count: ulong) <int>;
+
+#[llvm_name="snprintf"]
+@define arg_snprintf(buf: string, size: ulong, fmt: string, ...) <int>;
+
+priv fun str_eq(a: string, b: string) <bool> {
+    if (a == null && b == null) { return true; }
+    if (a == null || b == null) { return false; }
+    return arg_strcmp(a, b) == 0;
+}
+
+#[export]
+pub struct FlagDef {
+    pub:
+      name <string> = "",
+      short_name <string> = "",
+      desc <string> = "",
+      value <bool> = false,
+}
+
+#[export]
+pub struct OptionDef {
+    pub:
+      name <string> = "",
+      short_name <string> = "",
+      desc <string> = "",
+      value <string> = "",
+      default_val <string> = "",
+}
+
+#[export]
+pub struct ArgParser {
+    pub:
+      prog <string> = "",
+      desc <string> = "",
+      flags <[FlagDef]>,
+      flag_count <int> = 0,
+      options <[OptionDef]>,
+      option_count <int> = 0,
+      positionals <[string]>,
+      positional_count <int> = 0,
+      error_msg <string> = "",
+
+    pub:
+      fun add_flag(self: &Self, name: string, short_name: string, desc: string) <noret> {
+        if (self.flag_count >= 32) { return; }
+        self.flags[self.flag_count] = FlagDef {
+            name: name,
+              short_name: short_name,
+              desc: desc,
+              value: false
+        };
+        self.flag_count++;
+      }
+
+      fun add_option(self: &Self, name: string, short_name: string, default_val: string, desc: string) <noret> {
+        if (self.option_count >= 32) { return; }
+        self.options[self.option_count] = OptionDef {
+            name: name,
+              short_name: short_name,
+              desc: desc,
+              value: default_val,
+              default_val: default_val
+        };
+        self.option_count++;
+      }
+
+      fun parse(self: &Self, args: [string], count: int) <bool> {
+        self.positional_count = 0;
+        // The extent is the caller's claim, and it is checked before the first
+        // read because it is not derived from the array: a `main(args)` count, a
+        // sliced buffer's length, or an arithmetic slip all arrive here, and
+        // reading past `args` is a crash rather than a parse failure. Every other
+        // refusal in this method answers `error_msg` + `false`, so these do the
+        // same instead of inventing a second error style.
+        if (count < 0) {
+            self.error_msg = "parse count cannot be negative";
+            return false;
+        }
+        // The bound is enforced only when `args.length` is a plausible extent.
+        // On the self-hosted backend an array that crossed a call boundary from
+        // `main(args)` can report a negative length, and rejecting a correct
+        // argv is worse than skipping a check
+        // (KnownDefect_StageCoverage
+        //  .PassingMainArgsToACalleeLosesTheLengthOnTheStage). A real array never
+        // has a negative length, so the condition below is exact wherever the
+        // length is trustworthy -- and where it is not, the null-element check
+        // in the loop still catches the over-large-extent crash, because
+        // `new [string, n]{}` zero-fills.
+        if (args.length >= 0 && count > args.length) {
+            self.error_msg = "parse count exceeds the argument array";
+            return false;
+        }
+        let i <int> = 0;
+        while (i < count) {
+            let arg <string> = args[i];
+            // `new [string, n]{}` zero-fills, so a table the caller only partly
+            // filled hands a null element here. Passing that to `arg_strncmp`
+            // below is libc's crash, not a diagnostic.
+            if (arg == null) {
+                self.error_msg = "parse argument is null";
+                return false;
+            }
+            let is_matched <bool> = false;
+
+            // 1. Check flags
+            for (let f <int> = 0; f < self.flag_count; f++) {
+                if (str_eq(arg, self.flags[f].name) || str_eq(arg, self.flags[f].short_name)) {
+                    self.flags[f].value = true;
+                    is_matched = true;
+                }
+            }
+
+            // 2. Check options
+            if (!is_matched) {
+                for (let o <int> = 0; o < self.option_count; o++) {
+                    if (str_eq(arg, self.options[o].name) || str_eq(arg, self.options[o].short_name)) {
+                        if (i + 1 < count) {
+                            i++;
+                            self.options[o].value = args[i];
+                            is_matched = true;
+                        } else {
+                            self.error_msg = "missing argument for option";
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            // 3. Positional argument. An unmatched dash-arg is a usage
+            // error, never a positional: silently compiling the wrong
+            // thing is the worst failure mode for a caller that builds
+            // argv programmatically.
+            if (!is_matched) {
+                if (arg_strncmp(arg, "-", cast<ulong>(1)) == 0) {
+                    let need <ulong> = arg_strlen(arg) + cast<ulong>(32);
+                    let msg <string> = arg_calloc(need, cast<ulong>(1));
+                    arg_snprintf(msg, need, "unknown option '%s'", arg);
+                    self.error_msg = msg;
+                    return false;
+                }
+                if (self.positional_count < 64) {
+                    self.positionals[self.positional_count] = arg;
+                    self.positional_count++;
+                }
+            }
+
+            i++;
+        }
+        return true;
+      }
+
+      fun get_flag(self: &Self, name: string) <bool> {
+        for (let i <int> = 0; i < self.flag_count; i++) {
+            if (str_eq(self.flags[i].name, name) || str_eq(self.flags[i].short_name, name)) {
+                return self.flags[i].value;
+            }
+        }
+        return false;
+      }
+
+      fun get_option(self: &Self, name: string) <string> {
+        for (let i <int> = 0; i < self.option_count; i++) {
+            if (str_eq(self.options[i].name, name) || str_eq(self.options[i].short_name, name)) {
+                return self.options[i].value;
+            }
+        }
+        return "";
+      }
+
+      fun get_positional(self: &Self, index: int) <string> {
+        if (index < 0 || index >= self.positional_count) {
+            return "";
+        }
+        return self.positionals[index];
+      }
+
+      fun get_positional_count(self: &Self) <int> {
+        return self.positional_count;
+      }
+
+      fun has_flag(self: &Self, name: string) <bool> {
+        return self.get_flag(name);
+      }
+
+      fun has_option(self: &Self, name: string) <bool> {
+        for (let i <int> = 0; i < self.option_count; i++) {
+            if (str_eq(self.options[i].name, name) || str_eq(self.options[i].short_name, name)) {
+                return str_eq(self.options[i].value, "") == false;
+            }
+        }
+        return false;
+      }
+
+      fun reset(self: &Self) <noret> {
+        for (let i <int> = 0; i < self.flag_count; i++) {
+            self.flags[i].value = false;
+        }
+        for (let j <int> = 0; j < self.option_count; j++) {
+            self.options[j].value = self.options[j].default_val;
+        }
+        self.positional_count = 0;
+        self.error_msg = "";
+      }
+}
+
+// Allocates and initializes an ArgParser.
+#[export]
+pub fun new_arg_parser(prog: string, desc: string) <ArgParser> {
+    let flags_arr <[FlagDef]> = new [FlagDef, 32]{};
+    let options_arr <[OptionDef]> = new [OptionDef, 32]{};
+    let pos_arr <[string]> = new [string, 64]{};
+
+    return ArgParser {
+        prog: prog,
+          desc: desc,
+          flags: flags_arr,
+          flag_count: 0,
+          options: options_arr,
+          option_count: 0,
+          positionals: pos_arr,
+          positional_count: 0,
+          error_msg: ""
+    };
+}
+
+// Releases dynamic memory associated with an ArgParser.
+#[export]
+pub fun free_arg_parser(p: ArgParser) <noret> {
+    delete p.flags;
+    delete p.options;
+    delete p.positionals;
+}
+
+}

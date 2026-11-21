@@ -1,0 +1,47 @@
+{
+  "main": {
+    "prefix": "main",
+    "body": ["fun main() <noret> {", "\t$0", "}"],
+    "description": "Program entry point"
+  },
+  "fun": {
+    "prefix": "fun",
+    "body": ["fun ${1:name}(${2}) <${3:noret}> {", "\t$0", "}"],
+    "description": "Function with an explicit result after the parameters"
+  },
+  "pub fun": {
+    "prefix": "pubfun",
+    "body": ["pub fun ${1:name}(${2}) <${3:int}> {", "\t$0", "}"],
+    "description": "Exported function"
+  },
+  "struct": {
+    "prefix": "struct",
+    "body": ["struct ${1:Name} {", "\tpub:", "\t\t${2:field} <${3:int}> = ${4:0},", "}"],
+    "description": "Struct with a public field label"
+  },
+  "import": {
+    "prefix": "import",
+    "body": ["import { ${1:Name} } from ${2:module}::std;"],
+    "description": "Import named symbols from a module namespace"
+  },
+  "import path": {
+    "prefix": "importpath",
+    "body": ["import \"${1:path/to/file.fin}\";"],
+    "description": "Import a source file by path"
+  },
+  "blame": {
+    "prefix": "blame",
+    "body": ["blame ${1:condition}, \"${2:what went wrong}\";"],
+    "description": "Abort with a message when the condition is false"
+  },
+  "nullable fun": {
+    "prefix": "fun?",
+    "body": ["fun? ${1:name}(${2}) <${3:string}> {", "\t$0", "}"],
+    "description": "Function whose result may be absent"
+  },
+  "foreach": {
+    "prefix": "foreach",
+    "body": ["foreach (${1:i} <int>, ${2:value} <${3:string}> in ${4:items}) {", "\t$0", "}"],
+    "description": "Loop over an array with an index and a value"
+  }
+}

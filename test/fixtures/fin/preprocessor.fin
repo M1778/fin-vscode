@@ -1,0 +1,26 @@
+//@ normative
+//@ ok
+@define printf(fmt: <string>, ...) <noret>;
+#cdef CONST_NUM 100
+#cdef MAX(a, b) ((a) > (b) : a ? b)
+
+#c_ifndef PREPROCESSORS
+#cdef PREPROCESSORS
+#c_endif
+
+#cdef DEBUG
+#c_ifdef DEBUG
+#cdef LOG_MSG "Debug Mode"
+#c_else
+#cdef LOG_MSG "Release Mode"
+#c_endif
+
+fun main() <noret> {
+    let x <int> = CONST_NUM;
+    let y <int> = 50;
+
+    // This should expand to: ((x) > (y) : x ? y)
+    let m <int> = MAX(x, y);
+
+    printf(LOG_MSG);
+}

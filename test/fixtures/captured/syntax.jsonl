@@ -1,0 +1,2 @@
+{"kind":"diagnostic","severity":"error","code":"E0902","message":"expected ';'","file":"syntax.fin","line":2,"column":18,"endLine":2,"endColumn":18,"help":null,"attribution":null}
+{"kind":"summary","errors":1,"warnings":0,"exitCode":1,"status":"failed"}

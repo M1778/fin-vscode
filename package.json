@@ -1,0 +1,196 @@
+{
+  "name": "fin-vscode",
+  "displayName": "Fin",
+  "description": "Fin language support for Visual Studio Code",
+  "version": "1.0.0",
+  "license": "MIT",
+  "publisher": "M1778",
+  "author": {
+    "name": "M1778",
+    "url": "https://github.com/M1778M/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/M1778/fin-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/M1778/fin-vscode/issues"
+  },
+  "homepage": "https://github.com/M1778/fin-vscode#readme",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "fin",
+    "finc",
+    "language",
+    "compiler"
+  ],
+  "activationEvents": [
+    "onLanguage:fin"
+  ],
+  "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Fin support does not run the compiler, formatter or linter in an untrusted workspace. Highlighting, hover, completion and outline read text only and keep working."
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "fin",
+        "aliases": [
+          "Fin",
+          "fin"
+        ],
+        "extensions": [
+          ".fin"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/fin-light.svg",
+          "dark": "./icons/fin-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fin",
+        "scopeName": "source.fin",
+        "path": "./syntaxes/fin.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "fin",
+        "path": "./snippets/fin.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "fin.explainDiagnosticCode",
+        "title": "Explain diagnostic code",
+        "category": "Fin"
+      },
+      {
+        "command": "fin.showCompilerOutput",
+        "title": "Show compiler output",
+        "category": "Fin"
+      },
+      {
+        "command": "fin.restartToolchain",
+        "title": "Restart toolchain (reload compiler, formatter and stdlib)",
+        "category": "Fin"
+      },
+      {
+        "command": "fin.formatDocument",
+        "title": "Format document",
+        "category": "Fin"
+      },
+      {
+        "command": "fin.showDiagnosticCodes",
+        "title": "List every diagnostic code",
+        "category": "Fin"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "fin.formatDocument",
+          "when": "editorLangId == fin"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "fin.explainDiagnosticCode",
+          "when": "editorLangId == fin",
+          "group": "navigation@9"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Fin",
+      "properties": {
+        "fin.compilerPath": {
+          "type": "string",
+          "default": "finc",
+          "markdownDescription": "Path to the `finc` compiler, or just its name to search `PATH`. Relative paths resolve against the first workspace folder."
+        },
+        "fin.formatterPath": {
+          "type": "string",
+          "default": "finfmt",
+          "markdownDescription": "Path to the `finfmt` formatter, or just its name to search `PATH`. Relative paths resolve against the first workspace folder."
+        },
+        "fin.includePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra module search directories passed to `finc` as `-I <path>`. Relative paths resolve against the first workspace folder."
+        },
+        "fin.stdlibPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Directory holding the Fin standard library (`*.fin`). Empty means derive it from the compiler location as `<compiler>/../lib/std`, which is where a normal Fin install keeps it."
+        },
+        "fin.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Run `finc --diagnostics=json` on change and show its problems as diagnostics. Turning this off clears the problems Fin reported."
+        },
+        "fin.format.onSave": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Format with `finfmt` when a `.fin` file is saved. `editor.formatOnSave` also works, through the registered formatting provider."
+        },
+        "fin.lint.linfEnabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also run the optional [`linf`](https://github.com/M1778/linf) style linter and merge its `linf:*` warnings into the diagnostic stream. Compiler diagnostics are always the primary stream."
+        },
+        "fin.lint.linfPath": {
+          "type": "string",
+          "default": "linf",
+          "markdownDescription": "Path to the `linf` binary used when `fin.lint.linfEnabled` is on."
+        },
+        "fin.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "markdownDescription": "How much of Fin's own work reaches the **Fin** output channel: `off`, `messages` (each compiler invocation and its summary), or `verbose` (also the raw JSONL and stderr)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run test:unit && npm run test:grammar",
+    "test:unit": "node --test test/diagnostics.test.js test/exec.test.js test/stdlib-model.test.js test/stdlib-real.test.js test/config.test.js",
+    "test:grammar": "node --test test/grammar.test.js",
+    "test:integration": "node ./test/suite/runTests.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.9",
+    "@types/vscode": "1.85.0",
+    "@vscode/test-electron": "2.4.1",
+    "@vscode/vsce": "3.2.1",
+    "mocha": "10.8.2",
+    "typescript": "5.7.2",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.2.0"
+  }
+}

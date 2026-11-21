@@ -1,0 +1,2 @@
+import { Thing } from nope::std;
+fun main() <noret> { }
