@@ -51,6 +51,26 @@ function scratchDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "fin-vscode-suite-"));
 }
 
+/**
+ * Remove a scratch directory. On Windows an open editor keeps a handle on the file,
+ * so the editors are closed first and a locked directory is retried rather than
+ * failing the assertion that ran before it.
+ */
+async function removeScratch(directory) {
+  await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (error.code !== "EBUSY" && error.code !== "EPERM") {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
 /** `Diagnostic.code` is a string or a `{value, target}` object; both name the code. */
 function codeOf(diagnostic) {
   return typeof diagnostic.code === "string" ? diagnostic.code : diagnostic.code?.value;
@@ -176,7 +196,7 @@ suite("Fin extension", () => {
       assert.strictEqual(document.languageId, "fin");
       assert.strictEqual(document.uri.fsPath.endsWith(".fin"), true);
     } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
+      await removeScratch(directory);
     }
   });
 
@@ -208,7 +228,7 @@ suite("Fin extension", () => {
       assert.ok(bump, "fun bump is a symbol");
       assert.ok(box.children.some((child) => child.name === "value"), "the struct field is nested");
     } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
+      await removeScratch(directory);
     }
   });
 
@@ -244,7 +264,7 @@ suite("Fin extension", () => {
         assert.match(rendered, /pub fun len\(s: string\) <int>/, "the real signature is shown");
         assert.match(rendered, /byte length/, "the module's own comment is shown");
       } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
+        await removeScratch(directory);
       }
     });
 
@@ -272,7 +292,7 @@ suite("Fin extension", () => {
         );
         assert.ok(labels.includes("concat"), `concat should complete, got ${labels.slice(0, 12).join(", ")}`);
       } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
+        await removeScratch(directory);
       }
     });
 
@@ -321,7 +341,7 @@ suite("Fin extension", () => {
           "the stale diagnostic to be replaced"
         );
       } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
+        await removeScratch(directory);
       }
     });
 
@@ -341,7 +361,7 @@ suite("Fin extension", () => {
         await vscode.commands.executeCommand("editor.action.formatDocument");
         assert.strictEqual(document.getText(), once, "formatting an already-formatted file is a no-op");
       } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
+        await removeScratch(directory);
       }
     });
 
@@ -401,27 +421,27 @@ suite("Fin extension", () => {
       if (FINC !== "") {
         await configuration.update("compilerPath", FINC, vscode.ConfigurationTarget.Global);
       }
-      fs.rmSync(directory, { recursive: true, force: true });
+      await removeScratch(directory);
     }
   });
 
-  test("a compiler that cannot produce a report is reported, not treated as clean", async () => {
+  test("a compiler that cannot produce a report is reported, not treated as clean", async function () {
+    if (process.platform === "win32") {
+      // The extension spawns the compiler without a shell, and Windows has no way to
+      // make a text file directly executable (Node refuses .cmd/.bat without a
+      // shell). The behaviour itself is covered on every platform by
+      // `parseCompilerOutput` in test/diagnostics.test.js and by the Linux/macOS run
+      // of this test; asserting it here would need a compiled .exe the test cannot
+      // build on a stock runner.
+      this.skip();
+      return;
+    }
     const directory = scratchDir();
     const configuration = vscode.workspace.getConfiguration("fin");
     const extension = vscode.extensions.getExtension("M1778.fin-vscode");
     const api = extension.exports;
-    const fake = path.join(
-      directory,
-      process.platform === "win32" ? "fake-finc.cmd" : "fake-finc"
-    );
-    const body =
-      process.platform === "win32"
-        ? "@echo off\r\necho not json at all\r\nexit 1\r\n"
-        : "#!/bin/sh\necho 'not json at all' >&2\nexit 1\n";
-    fs.writeFileSync(fake, body, "utf8");
-    if (process.platform !== "win32") {
-      fs.chmodSync(fake, 0o755);
-    }
+    // A real executable that exits non-zero and prints nothing JSON: /bin/sh.
+    const fake = "/bin/sh";
     try {
       api.resetNotifications();
       await configuration.update("compilerPath", fake, vscode.ConfigurationTarget.Global);
@@ -443,7 +463,7 @@ suite("Fin extension", () => {
       if (FINC !== "") {
         await configuration.update("compilerPath", FINC, vscode.ConfigurationTarget.Global);
       }
-      fs.rmSync(directory, { recursive: true, force: true });
+      await removeScratch(directory);
     }
   });
 });
