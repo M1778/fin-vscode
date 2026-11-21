@@ -27,6 +27,13 @@ const os = require("os");
 const { runTests } = require("@vscode/test-electron");
 
 /**
+ * The VS Code build the suite runs against. Pinned rather than "latest": a macOS
+ * bundle-layout change in a newer build is not this extension's bug, and the pin
+ * makes a failure mean the extension changed.
+ */
+const DEFAULT_VSCODE_VERSION = "1.95.3";
+
+/**
  * Launches a real VS Code, installs this extension in it, and runs
  * `test/suite/extension.test.js` inside that window.
  *
@@ -40,13 +47,18 @@ const { runTests } = require("@vscode/test-electron");
  * the two this repository has actually run are recognised; anything else falls
  * through to `@vscode/test-electron`, whose own resolution is authoritative.
  */
-function cachedExecutable(root) {
+function cachedExecutable(root, version) {
   const cacheRoot = path.join(root, ".vscode-test");
   if (!fs.existsSync(cacheRoot)) {
     return undefined;
   }
   const candidates = [];
   for (const entry of fs.readdirSync(cacheRoot)) {
+    // Only a build of the requested version is a valid cache hit; reusing a different
+    // one would make the pin a lie.
+    if (version && !entry.endsWith(`-${version}`)) {
+      continue;
+    }
     const base = path.join(cacheRoot, entry);
     if (entry.startsWith("vscode-linux")) {
       candidates.push(path.join(base, "code"));
@@ -60,6 +72,9 @@ function cachedExecutable(root) {
 async function main() {
   const extensionDevelopmentPath = path.resolve(__dirname, "..", "..");
   const extensionTestsPath = path.resolve(__dirname, "index.js");
+  // `VSCODE_TEST_CACHE` lets a test run use a throwaway download directory, which is
+  // how CI isolates a run from any cache a previous job left behind.
+  const cachePath = process.env.VSCODE_TEST_CACHE;
 
   // A scratch user-data dir and extensions dir, so the test never sees (or
   // changes) the developer's real VS Code state.
@@ -67,11 +82,11 @@ async function main() {
   const userDataDir = path.join(scratch, "user-data");
   const extensionsDir = path.join(scratch, "extensions");
 
-  // An explicit override wins; otherwise reuse a cached Linux/Windows build when one
-  // is present, and let the library download and resolve the build for any other
-  // platform (its macOS layout is not one this repository should guess at).
-  const explicit = process.env.VSCODE_EXECUTABLE_PATH || cachedExecutable(extensionDevelopmentPath);
-  const version = process.env.VSCODE_TEST_VERSION;
+  const version = process.env.VSCODE_TEST_VERSION || DEFAULT_VSCODE_VERSION;
+  // Precedence: an explicit executable, then a cached build of *this* version, then a
+  // download. The version check is what keeps the pin honest.
+  const explicit =
+    process.env.VSCODE_EXECUTABLE_PATH || cachedExecutable(extensionDevelopmentPath, version);
   const launchArgs = [userDataDir, `--extensions-dir=${extensionsDir}`, "--disable-workspace-trust"];
 
   try {
@@ -81,6 +96,7 @@ async function main() {
       launchArgs,
       ...(explicit ? { vscodeExecutablePath: explicit } : {}),
       ...(version ? { version } : {}),
+      ...(cachePath ? { cachePath } : {}),
     });
   } catch (error) {
     console.error("Extension host test run failed:", error);

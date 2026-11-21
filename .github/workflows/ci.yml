@@ -142,12 +142,19 @@ jobs:
           "$FIN_COMPILER" --explain list >/dev/null 2>&1 && echo "FIN_EXPLAIN=yes" >> "$GITHUB_ENV" \
             || echo "FIN_EXPLAIN=no" >> "$GITHUB_ENV"
 
+      # Pinned VS Code, so a failure means this extension changed rather than that a
+      # newer build re-shaped a bundle. 1.95.3 is the oldest line the extension
+      # declares support for, so the run also proves the `engines` floor.
       - name: Run the extension host suite (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: xvfb-run -a npm run test:integration
+        env:
+          VSCODE_TEST_VERSION: "1.95.3"
 
       - name: Run the extension host suite (macOS, Windows)
         if: runner.os != 'Linux'
         shell: bash
         run: npm run test:integration
+        env:
+          VSCODE_TEST_VERSION: "1.95.3"
