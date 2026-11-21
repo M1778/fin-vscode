@@ -207,6 +207,32 @@ export function parseCompilerOutput(result: RunResult): ParsedReport {
   return onBoth;
 }
 
+/**
+ * Explain a spawn failure in the terms the user can act on.
+ *
+ * `ENOENT` means the path is wrong or the tool is not on `PATH`. `EINVAL` on
+ * Windows is what a `.cmd`/`.bat` produces when spawned without a shell: Node
+ * refuses, and this extension never uses a shell (a path with spaces would split
+ * and a path with `&` would execute). A user who wrote `finc.cmd` gets told to
+ * point at the `.exe` instead of seeing "EINVAL".
+ */
+export function explainSpawnError(command: string, result: RunResult): string {
+  const code = result.error?.code;
+  if (code === "EINVAL" && /\.(cmd|bat)$/i.test(command)) {
+    return (
+      `"${command}" is a shell wrapper. Fin runs the compiler without a shell, so ` +
+      `point fin.compilerPath at the real .exe (finc.exe) instead.`
+    );
+  }
+  if (code === "EACCES") {
+    return `"${command}" is not executable. Check its permissions.`;
+  }
+  if (code === "ENOENT") {
+    return `"${command}" does not exist.`;
+  }
+  return result.error?.message ?? "the process could not be started.";
+}
+
 /** Human-readable one-line description of a finished run, for the output channel. */
 export function describeRun(command: string, args: readonly string[], result: RunResult): string {
   const status = result.failedToStart

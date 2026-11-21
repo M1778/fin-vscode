@@ -113,17 +113,23 @@ export function derivedStdlibPath(compilerPath: string): string {
   return path.resolve(path.dirname(compilerPath), "..", "lib", "std");
 }
 
-/** The install message shown when a tool cannot be started. One sentence, one action. */
-export function missingCompilerMessage(configured: string): string {
+/**
+ * The install message shown when a tool cannot be started. One sentence, one
+ * action. `detail` lets the caller add the OS's own reason (a `.cmd` wrapper, a
+ * permission problem) without a second message.
+ */
+export function missingCompilerMessage(configured: string, detail?: string): string {
   return (
     `Fin compiler not found: could not run "${configured}". ` +
+    (detail ? `${detail} ` : "") +
     `Set "fin.compilerPath" to your finc binary, or install Fin from ${FINC_RELEASES_URL}.`
   );
 }
 
-export function missingFormatterMessage(configured: string): string {
+export function missingFormatterMessage(configured: string, detail?: string): string {
   return (
     `Fin formatter not found: could not run "${configured}". ` +
+    (detail ? `${detail} ` : "") +
     `Set "fin.formatterPath" to your finfmt binary; a normal Fin install ships it beside finc.`
   );
 }

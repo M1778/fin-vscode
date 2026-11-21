@@ -106,3 +106,4 @@ test("a platform extension is added once, and only on Windows", () => {
   const withExe = config.withPlatformExtension("finc.exe");
   assert.equal(withExe, "finc.exe", "an existing extension is kept on every platform");
 });
+

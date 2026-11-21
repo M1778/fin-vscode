@@ -26,7 +26,7 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { FinSettings, missingFormatterMessage, readSettings } from "./config";
-import { run } from "./exec";
+import { explainSpawnError, run } from "./exec";
 import { showError, showInfo, traceInfo, traceVerbose } from "./output";
 
 const FORMAT_TIMEOUT_MS = 15_000;
@@ -73,7 +73,7 @@ export class FinFormattingProvider implements vscode.DocumentFormattingEditProvi
       return [];
     }
     const formatted = await formatText(document.getText(), document.uri, settings, token, {
-      onMissing: () => this.notifyMissing(settings.formatterPath),
+      onMissing: (detail) => this.notifyMissing(settings.formatterPath, detail),
     });
     if (formatted === undefined || formatted === document.getText()) {
       return [];
@@ -85,12 +85,12 @@ export class FinFormattingProvider implements vscode.DocumentFormattingEditProvi
     return [vscode.TextEdit.replace(fullRange, formatted)];
   }
 
-  private notifyMissing(formatterPath: string): void {
+  private notifyMissing(formatterPath: string, detail?: string): void {
     if (this.missingNotified.has(formatterPath)) {
       return;
     }
     this.missingNotified.add(formatterPath);
-    const message = missingFormatterMessage(formatterPath);
+    const message = missingFormatterMessage(formatterPath, detail);
     showError(message);
     void vscode.window
       .showWarningMessage(message, "Open settings")
@@ -109,7 +109,8 @@ export class FinFormattingProvider implements vscode.DocumentFormattingEditProvi
 }
 
 export interface FormatCallbacks {
-  onMissing: () => void;
+  /** Called once, with the OS's own reason when there is one worth adding. */
+  onMissing: (detail?: string) => void;
 }
 
 /**
@@ -129,11 +130,11 @@ export async function formatText(
   try {
     await fs.writeFile(target, text, "utf8");
     const first = await runFormatter(settings.formatterPath, target, settings);
-    if (first === "missing") {
-      callbacks.onMissing();
+    if (first.status === "missing") {
+      callbacks.onMissing(first.detail);
       return undefined;
     }
-    if (!first) {
+    if (!first.status) {
       return undefined;
     }
     if (token.isCancellationRequested) {
@@ -146,7 +147,7 @@ export async function formatText(
     // Second pass: prove the formatter's own output is stable before handing the
     // editor an edit it would keep re-applying on every save.
     const second = await runFormatter(settings.formatterPath, target, settings);
-    if (second === "missing" || !second) {
+    if (second.status === "missing" || !second.status) {
       return once;
     }
     const twice = await fs.readFile(target, "utf8");
@@ -164,26 +165,31 @@ export async function formatText(
   }
 }
 
-/** "" for failure, "missing" when the binary is absent, or a short ok marker. */
+/**
+ * "" for failure, "missing" when the binary is absent, or a short ok marker.
+ * The spawn reason is returned alongside so the caller's message can name it.
+ */
 async function runFormatter(
   formatterPath: string,
   target: string,
   settings: FinSettings
-): Promise<string> {
+): Promise<{ status: string; detail?: string }> {
   traceInfo(settings.trace, `finfmt: ${formatterPath} ${target}`);
   const child = run(formatterPath, [target], { timeoutMs: FORMAT_TIMEOUT_MS });
   const result = await child.done;
   if (result.failedToStart) {
-    return "missing";
+    // The reason travels with the status so the user sees "point at the .exe, not
+    // the .cmd" rather than "EINVAL".
+    return { status: "missing", detail: explainSpawnError(formatterPath, result) };
   }
   traceVerbose(settings.trace, `finfmt stdout: ${result.stdout.trim()}`);
   if (result.code !== 0) {
     showError(
       `Fin: finfmt failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim() || "no output"}`
     );
-    return "";
+    return { status: "" };
   }
-  return "ok";
+  return { status: "ok" };
 }
 
 /** Format the active document on demand, so the command's failure is visible. */
@@ -200,8 +206,8 @@ export async function formatActiveDocument(): Promise<void> {
     settings,
     new vscode.CancellationTokenSource().token,
     {
-      onMissing: () => {
-        const message = missingFormatterMessage(settings.formatterPath);
+      onMissing: (detail) => {
+        const message = missingFormatterMessage(settings.formatterPath, detail);
         showError(message);
         void vscode.window
           .showWarningMessage(message, "Open settings")

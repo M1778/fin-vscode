@@ -26,7 +26,7 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { FinSettings, missingCompilerMessage, readSettings } from "../config";
-import { Cancellable, RunResult, describeRun, parseCompilerOutput, run } from "../exec";
+import { Cancellable, RunResult, describeRun, explainSpawnError, parseCompilerOutput, run } from "../exec";
 import { TraceLevel } from "../log";
 import { output, showError, showInfo, showWarning, traceInfo, traceVerbose } from "../output";
 import { CompilerDiagnostic, ParsedReport, toZeroBasedRange } from "./parse";
@@ -237,7 +237,7 @@ export class DiagnosticsController implements vscode.Disposable {
     if (result.failedToStart) {
       // The single most important behaviour in the brief: a missing compiler must
       // never look like a clean file.
-      this.notifyMissingCompiler(settings.compilerPath);
+      this.notifyMissingCompiler(settings.compilerPath, explainSpawnError(settings.compilerPath, result));
       return { diagnostics: [], others: new Map(), summary: null, failure: "compiler missing" };
     }
 
@@ -303,8 +303,8 @@ export class DiagnosticsController implements vscode.Disposable {
   }
 
   /** One actionable message per configuration, then a status bar state that stays. */
-  notifyMissingCompiler(configured: string): void {
-    const message = missingCompilerMessage(configured);
+  notifyMissingCompiler(configured: string, detail?: string): void {
+    const message = missingCompilerMessage(configured, detail);
     this.status.text = "$(warning) Fin: compiler not found";
     this.status.tooltip = message;
     this.status.show();
@@ -508,7 +508,7 @@ export async function probeCompiler(
   const child = run(compilerPath, ["--version"], { timeoutMs: 10_000 });
   const result = await child.done;
   if (result.failedToStart) {
-    return { ok: false, detail: missingCompilerMessage(compilerPath) };
+    return { ok: false, detail: missingCompilerMessage(compilerPath, explainSpawnError(compilerPath, result)) };
   }
   const version = firstMeaningfulLine(result.stdout);
   if (result.code !== 0) {
