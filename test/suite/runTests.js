@@ -34,29 +34,27 @@ const { runTests } = require("@vscode/test-electron");
  * existing installation instead, and an already-extracted download under
  * `.vscode-test` is reused so a second run needs no network at all.
  */
+/**
+ * An already-extracted build under `.vscode-test`, so a developer's second run
+ * needs no network. The path shapes differ per platform and VS Code build, so only
+ * the two this repository has actually run are recognised; anything else falls
+ * through to `@vscode/test-electron`, whose own resolution is authoritative.
+ */
 function cachedExecutable(root) {
   const cacheRoot = path.join(root, ".vscode-test");
   if (!fs.existsSync(cacheRoot)) {
     return undefined;
   }
+  const candidates = [];
   for (const entry of fs.readdirSync(cacheRoot)) {
-    if (!entry.startsWith("vscode-")) {
-      continue;
-    }
-    const candidates =
-      process.platform === "win32"
-        ? ["Code.exe", path.join("bin", "code.cmd")]
-        : process.platform === "darwin"
-          ? [path.join("Visual Studio Code.app", "Contents", "MacOS", "Electron")]
-          : ["code"];
-    for (const candidate of candidates) {
-      const full = path.join(cacheRoot, entry, candidate);
-      if (fs.existsSync(full)) {
-        return full;
-      }
+    const base = path.join(cacheRoot, entry);
+    if (entry.startsWith("vscode-linux")) {
+      candidates.push(path.join(base, "code"));
+    } else if (entry.startsWith("vscode-win32") && process.platform === "win32") {
+      candidates.push(path.join(base, "Code.exe"));
     }
   }
-  return undefined;
+  return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
 async function main() {
@@ -69,6 +67,9 @@ async function main() {
   const userDataDir = path.join(scratch, "user-data");
   const extensionsDir = path.join(scratch, "extensions");
 
+  // An explicit override wins; otherwise reuse a cached Linux/Windows build when one
+  // is present, and let the library download and resolve the build for any other
+  // platform (its macOS layout is not one this repository should guess at).
   const explicit = process.env.VSCODE_EXECUTABLE_PATH || cachedExecutable(extensionDevelopmentPath);
   const version = process.env.VSCODE_TEST_VERSION;
   const launchArgs = [userDataDir, `--extensions-dir=${extensionsDir}`, "--disable-workspace-trust"];
