@@ -72,8 +72,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The musl build is static and does not depend on the runner's glibc; the
+          # gnu asset crashes on some hosts.
           curl -sSL -o finc.tar.gz \
-            https://github.com/M1778/Fin/releases/download/v1.0.0/finc-1.0.0-x86_64-unknown-linux-gnu.tar.gz
+            https://github.com/M1778/Fin/releases/download/v1.0.0/finc-1.0.0-x86_64-unknown-linux-musl.tar.gz
           tar xzf finc.tar.gz -C "$RUNNER_TEMP"
           echo "FIN_COMPILER=$RUNNER_TEMP/bin/finc" >> "$GITHUB_ENV"
           echo "FIN_STDLIB=$RUNNER_TEMP/lib/std" >> "$GITHUB_ENV"
@@ -114,6 +116,32 @@ jobs:
             fi
           done
 
+      # The 1.0.0 release asset is older than the 1.0.1 tree this extension targets
+      # and does not implement `--explain`; on some hosts it crashes on startup.
+      # Probe it: when the binary is usable the toolchain tests run, and when it is
+      # not the suite still runs (activation, missing-compiler and no-report paths)
+      # and reports the toolchain tests as pending instead of pretending they ran.
+      - name: Probe the compiler
+        shell: bash
+        run: |
+          if [ -z "${FIN_COMPILER:-}" ]; then
+            echo "FIN_TOOLCHAIN=missing" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          VERSION_OUTPUT="$("$FIN_COMPILER" --version 2>&1 || true)"
+          echo "finc --version: $VERSION_OUTPUT"
+          if ! printf '%s' "$VERSION_OUTPUT" | grep -q '^finc '; then
+            echo "::warning::The downloaded finc is not usable on this runner; toolchain tests will be skipped."
+            echo "FIN_COMPILER=" >> "$GITHUB_ENV"
+            echo "FIN_FORMATTER=" >> "$GITHUB_ENV"
+            echo "FIN_STDLIB=" >> "$GITHUB_ENV"
+            echo "FIN_TOOLCHAIN=unusable" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "FIN_TOOLCHAIN=usable" >> "$GITHUB_ENV"
+          "$FIN_COMPILER" --explain list >/dev/null 2>&1 && echo "FIN_EXPLAIN=yes" >> "$GITHUB_ENV" \
+            || echo "FIN_EXPLAIN=no" >> "$GITHUB_ENV"
+
       - name: Run the extension host suite (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -123,5 +151,3 @@ jobs:
         if: runner.os != 'Linux'
         shell: bash
         run: npm run test:integration
-        env:
-          FIN_FORMATTER: ${{ env.FIN_FORMATTER }}

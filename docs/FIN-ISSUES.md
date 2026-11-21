@@ -81,7 +81,34 @@ behaviour, but the release is incomplete for editor use.
 
 **Smallest repro:** `tar tzf finc-1.0.0-x86_64-unknown-linux-gnu.tar.gz | grep fmt` → no output.
 
-## 5. Grammar gaps in `editors/textmate/fin.tmLanguage.json` (fixed locally, not upstream)
+## 5. The 1.0.0 release tarball is older than the 1.0.1 tree, and crashes on some hosts
+
+`v1.0.0` is the only published release. Its `--version` reports
+`finc 1.0.0 (contract 3)`, and it has no `--explain` at all:
+
+```sh
+$ finc --explain E0301
+error: unknown option '--explain'
+   = help: run `finc --help` for usage.
+```
+
+`--explain` is additive to contract 3 rather than a contract change, so a contract-3
+consumer cannot assume it. The extension treats "explain failed with a usage error"
+as a normal outcome and says so in the document it opens.
+
+Worse, the `x86_64-unknown-linux-gnu` asset **segfaults on startup** on this host
+(`finc --version` → exit 139), while the `x86_64-unknown-linux-musl` asset of the
+same version runs normally. Anything that wired the gnu asset into a toolchain check
+saw a dead compiler.
+
+**Smallest repro:**
+
+```sh
+curl -sL -o gnu.tar.gz https://github.com/M1778/Fin/releases/download/v1.0.0/finc-1.0.0-x86_64-unknown-linux-gnu.tar.gz
+tar xzf gnu.tar.gz -C /tmp/gnu && /tmp/gnu/bin/finc --version   # Segmentation fault
+```
+
+## 6. Grammar gaps in `editors/textmate/fin.tmLanguage.json` (fixed locally, not upstream)
 
 Three constructs the compiler accepts tokenize as plain variables/punctuation in
 the canonical grammar:
@@ -106,7 +133,7 @@ documented as canonical in `editors/README.md`.
 **Smallest repro:** the offsets are pinned in `test/grammar.test.js`
 ("the local additions colour compiler intrinsics and `@special(pub)`").
 
-## 6. `linf` duplicates compiler diagnostics on its `gcc` lane
+## 7. `linf` duplicates compiler diagnostics on its `gcc` lane
 
 `linf check e.fin --format gcc` prints the same `E0201` line three times for one
 error (once per compiler phase it relays), and its `contract` lane emits the

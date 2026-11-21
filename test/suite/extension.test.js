@@ -40,6 +40,10 @@ const STDLIB = process.env.FIN_STDLIB || "";
 // but not `finfmt` (that is built from source). A missing formatter must skip only
 // the formatting test, not the compiler and library tests.
 const HAS_COMPILER = FINC !== "" && STDLIB !== "";
+// `--explain` is additive to the compiler: a 1.0.0 release does not implement it,
+// so the explain test is gated on the flag actually working rather than on the
+// binary merely existing.
+const HAS_EXPLAIN = HAS_COMPILER && (process.env.FIN_EXPLAIN || "").toLowerCase() !== "no";
 const HAS_FORMATTER = FINFMT !== "";
 const HAS_STDLIB = STDLIB !== "";
 
@@ -342,7 +346,7 @@ suite("Fin extension", () => {
     });
 
     test("the explain command opens the compiler's own explanation", async function () {
-      if (!HAS_COMPILER) {
+      if (!HAS_EXPLAIN) {
         this.skip();
         return;
       }

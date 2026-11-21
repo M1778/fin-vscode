@@ -6,7 +6,8 @@ compiler's own grammar, the compiler's diagnostics as squiggles, `finfmt`
 formatting, and hover, completion and outline built from the shipped standard
 library.
 
-- Verified against **finc 1.0.1 (contract 3)**.
+- Verified against **finc 1.0.1 (contract 3)**, and exercised against the published
+  **1.0.0** release (which has no `--explain`; see [docs/FIN-ISSUES.md](docs/FIN-ISSUES.md)).
 - Extension version **1.0.0**.
 - License **MIT**.
 
